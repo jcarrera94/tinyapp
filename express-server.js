@@ -19,9 +19,7 @@ const generateRandomString = function() {
 
 const findEmail = function(email, users) {
   let result = undefined;
-  console.log(email);
   for (let user in users) {
-    console.log('users email', users[user].email)
     if(email === users[user].email) {
       return true;
     } else {
