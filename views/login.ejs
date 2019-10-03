@@ -19,6 +19,10 @@
           <div class="alert alert-danger" role="alert">
             Invalid email or password!
           </div>
+        <% } else if (user_id === undefined) {%>
+          <div class="alert alert-dark" role="alert">
+            Please log in or register first to use this app!
+          </div>
         <% } %>
       <div class="container">
         <form method="POST" action="/login">

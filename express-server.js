@@ -26,7 +26,6 @@ const findEmail = function(email, users) {
       result = false;
     }
   }
-  console.log(result);
   return result;
 }
 
@@ -43,38 +42,42 @@ const findUser = function(email, password, users) {
   return userFound;
 }
 
+const findURLsForUsers = function(user_id, db) {
+  let arr = [];
+  for (let shortURL in db) {
+    if (user_id === db[shortURL].user_id) {
+      arr.push(db[shortURL]);
+    }
+  }
+  return arr;
+}
+
 const urlDatabase = {
-  'b2xVn2': 'http://www.lighthouselabs.ca',
-  '9sm5xK': 'http://www.google.com'
+ 
 };
 
 const users = {
-  "userRandomID": {
-    id: "userRandomID", 
-    email: "user@example.com", 
-    password: "purple-monkey-dinosaur"
-  },
- "user2RandomID": {
-    id: "user2RandomID", 
-    email: "user2@example.com", 
-    password: "dishwasher-funk"
-  }
+ 
 };
 
+//redirects homepage to register
 app.get('/', (req, res) => {
-  res.redirect('/login')
+  res.redirect('/register')
 });
 
+//renders login template and sends users object and user_id as undefined
 app.get('/login', (req, res) => {
   let templateVars = { users, user_id: undefined }
   res.render('login', templateVars);
 });
 
+//renders register template and sends users object, invalidEmail and user_id as undefined 
 app.get('/register', (req, res) => {
-  let templateVars = { users, invalidEmail: false, user_id: req.cookies.user_id};
+  let templateVars = { users, invalidEmail: false, user_id: undefined };
   res.render('register', templateVars);
 });
 
+//creates a new user if email hasn't been used before and redirects to /urls/userid website
 app.post('/register', (req, res) => {
   if(findEmail(req.body.email, users)) {
     const invalidEmail = true;
@@ -88,15 +91,16 @@ app.post('/register', (req, res) => {
       password: req.body.password
     };
     res.cookie('user_id', rndmID);
-    res.redirect('/urls');
+    res.redirect(`/urls`);
   }
 });
 
+//logs in from login post request with valid email and password and redirects them to the /urls/user_id
 app.post('/login', (req, res) => {
   let userFound = findUser(req.body.email, req.body.password, users);
   if(userFound) {
     res.cookie('user_id', userFound);
-    res.redirect('/urls');
+    res.redirect(`/urls`);
   } else {
     let templateVars = {
       users,
@@ -106,47 +110,82 @@ app.post('/login', (req, res) => {
   }
 });
 
+//logs out user and clears the cookie 'user_id' and redirects user to the login website
 app.post('/logout', (req, res) => {
   res.clearCookie('user_id');
   res.redirect('/login');
-})
-
-app.get('/urls', (req, res) => {
-  let templateVars = { urls: urlDatabase, user_id: req.cookies.user_id, users };
-  res.render('urls-index', templateVars);
 });
 
-// app.get('/urls/new', (req, res) => {
-//   let templateVars = { users, user_id: req.cookies.user_id };
-//   res.render('urls-new', templateVars)
-// });
+//redirects unregistered and not logged in users to the login page or renders index template with all urls saved to the user logged in
+app.get('/urls', (req, res) => {
+  if (req.cookies.user_id === undefined) {
+    let templateVars = {
+      users,
+      user_id: undefined
+    }
+    res.render('login', templateVars);
+  } else {
+    const urls = findURLsForUsers(req.cookies.user_id, urlDatabase);
+    let templateVars = { urls: urls, user_id: req.cookies.user_id, users, shortURLFound: 'found' };
+    res.render('urls-index', templateVars);
+  }
+});
 
-// app.get('/urls/:shortURL', (req, res) => {
-//   let templateVars = { shortURL: req.params.shortURL, longURL: urlDatabase[req.params.shortURL], users , user_id: req.cookies.user_id };
-//   res.render('urls-show', templateVars);
-// });
+//redirects unregistered and not logged in users to the login page or checks if user is logged in to create a new tinyURL
+app.get('/urls/new', (req, res) => {
+  if(!req.cookies.user_id) {
+    res.redirect('/login');
+  }
+  let templateVars = { users, user_id: req.cookies.user_id };
+  res.render('urls-new', templateVars);
+});
 
-// app.get('/u/:shortURL', (req, res) => {
-//   const longURL = urlDatabase[req.params.shortURL];
-//   res.redirect(longURL);
-// });
+//creates new tinyurl for specific user and redirects to the user's index page
+app.post('/urls', (req, res) => {
+  const rndmURL = generateRandomString();
+  urlDatabase[rndmURL] = { shortURL: rndmURL, longURL: req.body.longURL, user_id: req.cookies.user_id };
+  res.redirect(`/urls`);
+});
 
+app.get('/urls/:shortURL', (req, res) => {
+  if (req.cookies.user_id === undefined) {
+    let templateVars = {
+      users,
+      user_id: undefined
+    }
+    res.render('login', templateVars);
+  } else {
+    const urls = findURLsForUsers(req.cookies.user_id, urlDatabase)
+    for (let url of urls) {
+      if (req.params.shortURL === url.shortURL) {
+        let templateVars = { shortURL: req.params.shortURL, longURL: urlDatabase[req.params.shortURL].longURL, users, user_id: req.cookies.user_id };
+        res.render('urls-show', templateVars);
+      }
+    }
+    let templateVars = {
+      users,
+      urls: urls,
+      user_id: req.cookies.user_id,
+      shortURLFound: 'notfound'
+    }
+    res.render('urls-index', templateVars);
+  }
+});
 
-// app.post('/urls', (req, res) => {
-//   const rndmURL = generateRandomString();
-//   urlDatabase[rndmURL] = req.body.longURL;
-//   res.redirect('/urls');
-// });
+app.post('/urls/:shortURL/delete', (req, res) => {
+  delete urlDatabase[req.params.shortURL];
+  res.redirect('/urls');
+});
 
-// app.post('/urls/:shortURL/delete', (req, res) => {
-//   delete urlDatabase[req.params.shortURL];
-//   res.redirect('/urls');
-// });
+app.post('/urls/:shortURL', (req, res) => {
+  urlDatabase[req.params.shortURL].longURL = req.body.longURL;
+  res.redirect('/urls');
+});
 
-// app.post('/urls/:shortURL', (req, res) => {
-//   urlDatabase[req.params.shortURL] = req.body.longURL;
-//   res.redirect('/urls');
-// });
+app.get('/u/:shortURL', (req, res) => {
+  const longURL = urlDatabase[req.params.shortURL].longURL;
+  res.redirect(longURL);
+});
 
 
 app.listen(PORT, () => {
