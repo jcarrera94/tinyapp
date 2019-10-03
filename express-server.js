@@ -3,11 +3,18 @@ const app = express();
 const PORT = 8080;
 const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
+const bcrypt = require('bcrypt');
+const cookieSession = require('cookie-session');
 
 app.set('view engine', 'ejs');
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cookieParser());
+app.use(cookieSession({
+  name: 'session',
+  keys: ['password']
+}));
 
+// generates a random 6 digit alphanumerical string
 const generateRandomString = function() {
   let str = '';
   const alph = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -17,6 +24,7 @@ const generateRandomString = function() {
   return str;
 };
 
+// checks if the email has already been used to register another account
 const findEmail = function(email, users) {
   let result = undefined;
   for (let user in users) {
@@ -29,11 +37,12 @@ const findEmail = function(email, users) {
   return result;
 }
 
+// checks if user email & password is saved in the database and return the user found
 const findUser = function(email, password, users) {
   let userFound = undefined;
   for (let user in users) {
     if(users[user].email === email) {
-      if(users[user].password === password) {
+      if(bcrypt.compareSync(password, users[user].password)) {
         userFound = users[user].id;
       }
     }
@@ -42,6 +51,7 @@ const findUser = function(email, password, users) {
   return userFound;
 }
 
+//find all urls created by the logged in user
 const findURLsForUsers = function(user_id, db) {
   let arr = [];
   for (let shortURL in db) {
@@ -88,9 +98,9 @@ app.post('/register', (req, res) => {
     users[rndmID] = {
       id: rndmID,
       email: req.body.email,
-      password: req.body.password
+      password: bcrypt.hashSync(req.body.password, 10)
     };
-    res.cookie('user_id', rndmID);
+    req.session.user_id = rndmID;
     res.redirect(`/urls`);
   }
 });
@@ -99,7 +109,7 @@ app.post('/register', (req, res) => {
 app.post('/login', (req, res) => {
   let userFound = findUser(req.body.email, req.body.password, users);
   if(userFound) {
-    res.cookie('user_id', userFound);
+    req.session.user_id = userFound;
     res.redirect(`/urls`);
   } else {
     let templateVars = {
@@ -118,70 +128,74 @@ app.post('/logout', (req, res) => {
 
 //redirects unregistered and not logged in users to the login page or renders index template with all urls saved to the user logged in
 app.get('/urls', (req, res) => {
-  if (req.cookies.user_id === undefined) {
+  if (req.session.user_id === undefined) {
     let templateVars = {
       users,
       user_id: undefined
     }
     res.render('login', templateVars);
   } else {
-    const urls = findURLsForUsers(req.cookies.user_id, urlDatabase);
-    let templateVars = { urls: urls, user_id: req.cookies.user_id, users, shortURLFound: 'found' };
+    const urls = findURLsForUsers(req.session.user_id, urlDatabase);
+    let templateVars = { urls: urls, user_id: req.session.user_id, users, shortURLFound: 'found' };
     res.render('urls-index', templateVars);
   }
 });
 
 //redirects unregistered and not logged in users to the login page or checks if user is logged in to create a new tinyURL
 app.get('/urls/new', (req, res) => {
-  if(!req.cookies.user_id) {
+  if(!req.session.user_id) {
     res.redirect('/login');
   }
-  let templateVars = { users, user_id: req.cookies.user_id };
+  let templateVars = { users, user_id: req.session.user_id };
   res.render('urls-new', templateVars);
 });
 
 //creates new tinyurl for specific user and redirects to the user's index page
 app.post('/urls', (req, res) => {
   const rndmURL = generateRandomString();
-  urlDatabase[rndmURL] = { shortURL: rndmURL, longURL: req.body.longURL, user_id: req.cookies.user_id };
+  urlDatabase[rndmURL] = { shortURL: rndmURL, longURL: req.body.longURL, user_id: req.session.user_id };
   res.redirect(`/urls`);
 });
 
+//checks if the user going to the url is logged in or else it will redirect them to the login page. Also checks if the request for the short url belongs to the user if not it will redirect them to their homepage and alerts them that they don't own that short URL
 app.get('/urls/:shortURL', (req, res) => {
-  if (req.cookies.user_id === undefined) {
+  if (req.session.user_id === undefined) {
     let templateVars = {
       users,
       user_id: undefined
     }
     res.render('login', templateVars);
   } else {
-    const urls = findURLsForUsers(req.cookies.user_id, urlDatabase)
+    const urls = findURLsForUsers(req.session.user_id, urlDatabase)
     for (let url of urls) {
       if (req.params.shortURL === url.shortURL) {
-        let templateVars = { shortURL: req.params.shortURL, longURL: urlDatabase[req.params.shortURL].longURL, users, user_id: req.cookies.user_id };
+        let templateVars = { shortURL: req.params.shortURL, longURL: urlDatabase[req.params.shortURL].longURL, users, user_id: req.session.user_id };
         res.render('urls-show', templateVars);
       }
     }
     let templateVars = {
       users,
       urls: urls,
-      user_id: req.cookies.user_id,
+      user_id: req.session.user_id,
       shortURLFound: 'notfound'
     }
     res.render('urls-index', templateVars);
   }
 });
 
+// makes sure the logged in user can delete their own short url
 app.post('/urls/:shortURL/delete', (req, res) => {
   delete urlDatabase[req.params.shortURL];
   res.redirect('/urls');
 });
 
+// makes sure the logged in user can edit their own short url
 app.post('/urls/:shortURL', (req, res) => {
   urlDatabase[req.params.shortURL].longURL = req.body.longURL;
   res.redirect('/urls');
 });
 
+//redirects any user/anyone to the long url linked to the short url
 app.get('/u/:shortURL', (req, res) => {
   const longURL = urlDatabase[req.params.shortURL].longURL;
   res.redirect(longURL);
