@@ -20,13 +20,11 @@ app.use(cookieSession({
 }));
 
 const isLoggedIn = (userId) => {
-  console.log('isLoggedIn:', userId, userId !== undefined);
   return userId !== undefined;
 }
 
 // This is a middleware that checks if user is logged in or not
 const isUserLogged = function (req, res, next) {
-  console.log(req.path);
   if(req.path === '/register' || req.path === '/login' || req.path.indexOf('/u/') !== -1) {
     next();
   } else if (!isLoggedIn(req.session.user_id)) {
@@ -161,7 +159,6 @@ app.post('/urls', (req, res) => {
 //checks if the user going to the url is logged in or else it will redirect them to the login page. Also checks if the request for the short url belongs to the user if not it will redirect them to their homepage and alerts them that they don't own that short URL
 app.get('/urls/:shortURL', checkURLExistance, (req, res) => {
   const urls = findURLsForUsers(req.session.user_id, urlDatabase)
-  console.log('shorturl route')
   for (let url of urls) {
     if (req.params.shortURL === url.shortURL) {
       let templateVars = { shortURL: req.params.shortURL, longURL: urlDatabase[req.params.shortURL].longURL, users, user_id: req.session.user_id };
