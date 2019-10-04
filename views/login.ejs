@@ -23,6 +23,11 @@
           <div class="alert alert-dark" role="alert">
             Please log in or register first to use this app!
           </div>
+          <% if (shortURLFound === 'DNE') { %>
+            <div class="alert alert-danger" role="alert">
+              Also short URL does not exist!
+            </div>
+          <% } %>
         <% } %>
       <div class="container">
         <form method="POST" action="/login">

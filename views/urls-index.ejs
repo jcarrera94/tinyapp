@@ -18,6 +18,10 @@
       <div class="alert alert-danger" role="alert">
         This short URL does not belong to you!
       </div>
+    <% } else if (shortURLFound === 'DNE') { %>
+      <div class="alert alert-danger" role="alert">
+        This short URL does not exist!
+      </div>
     <% } %>
     <h3>My URLs</h3>
     <table class="table">
