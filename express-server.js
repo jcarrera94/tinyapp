@@ -38,7 +38,7 @@ const isUserLogged = function (req, res, next) {
 app.use(isUserLogged);
 
 
-const test = (req, res, next) => {
+const checkURLExistance = (req, res, next) => {
   const urls = findURLsForUsers(req.session.user_id, urlDatabase)
   let found = false;
   for (let url in urlDatabase) {
@@ -161,7 +161,7 @@ app.post('/urls', (req, res) => {
 });
 
 //checks if the user going to the url is logged in or else it will redirect them to the login page. Also checks if the request for the short url belongs to the user if not it will redirect them to their homepage and alerts them that they don't own that short URL
-app.get('/urls/:shortURL', test, (req, res) => {
+app.get('/urls/:shortURL', checkURLExistance, (req, res) => {
   const urls = findURLsForUsers(req.session.user_id, urlDatabase)
   console.log('shorturl route')
   for (let url of urls) {
@@ -193,7 +193,7 @@ app.post('/urls/:shortURL', (req, res) => {
 });
 
 //redirects any user/anyone to the long url linked to the short url
-app.get('/u/:shortURL', test, (req, res) => {
+app.get('/u/:shortURL', checkURLExistance, (req, res) => {
   const longURL = urlDatabase[req.params.shortURL].longURL;
   res.redirect(longURL);
 });
