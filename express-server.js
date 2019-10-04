@@ -37,17 +37,18 @@ const isUserLogged = function (req, res, next) {
 }
 app.use(isUserLogged);
 
-
+// Function that checks if the URL exists when user trys some unusual paths
 const checkURLExistance = (req, res, next) => {
   const urls = findURLsForUsers(req.session.user_id, urlDatabase)
   let found = false;
+  //checks for shortURL existance
   for (let url in urlDatabase) {
     if (req.params.shortURL === url) {
       found = true;
     }
   }
+  // if shortURL does not exist it renders user to either their index if logged in or the login page if they are not logged in
   if (!found) {
-    console.log(1);
     let templateVars = {
       shortURL: req.params.shortURL,
       longURL: urlDatabase[req.params.shortURL] ? urlDatabase[req.params.shortURL].longURL : '',
@@ -57,12 +58,9 @@ const checkURLExistance = (req, res, next) => {
       user_id: req.session.user_id
     };
     if(req.path.indexOf('/urls/') !== -1) {
-      console.log(2);
       res.render('urls-index', templateVars);
     } else {
-      console.log(3);
       if (isLoggedIn(req.session.user_id)) {
-        console.log(3.1);
         res.render('urls-index', templateVars);
       }
       else res.render('login', templateVars);
@@ -73,11 +71,11 @@ const checkURLExistance = (req, res, next) => {
 }
 
 const urlDatabase = {
- //urlid: {shorturl:urlid, longurl: longurl, user: user_id}
+ // urlid: {shorturl:urlid, longurl: longurl, user: user_id}
 };
 
 const users = {
- 
+ // id: { email: email, password: password, user_id: id}
 };
 
 //redirects user to their homepage if they are logged in or sends them to the login page
